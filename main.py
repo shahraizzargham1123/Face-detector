@@ -4,9 +4,15 @@ import os
 
 MEMES_DIR = "memes"
 
+EMOTION_TO_MEME = {
+    "happy": "happy",
+    "angry": "angry",
+    "neutral": "neutral",
+}
+
 def load_memes():
     memes = {}
-    for emotion in ["happy", "neutral", "angry"]:
+    for emotion in ["happy", "angry", "neutral"]:
         for ext in ["jpg", "jpeg", "png"]:
             path = os.path.join(MEMES_DIR, f"{emotion}.{ext}")
             if os.path.exists(path):
@@ -18,7 +24,6 @@ def get_y(landmarks, idx, h):
     return landmarks[idx].y * h
 
 def detect_emotion(landmarks, h):
-    # Smile: mouth corners higher (lower y) than upper lip center
     corner_avg_y = (get_y(landmarks, 61, h) + get_y(landmarks, 291, h)) / 2
     upper_lip_y = get_y(landmarks, 13, h)
     chin_y = get_y(landmarks, 152, h)
@@ -27,24 +32,20 @@ def detect_emotion(landmarks, h):
 
     smile_score = (upper_lip_y - corner_avg_y) / face_height
 
-    # Angry: inner eyebrows close to eyes
     left_brow_dist = get_y(landmarks, 159, h) - get_y(landmarks, 107, h)
     right_brow_dist = get_y(landmarks, 386, h) - get_y(landmarks, 336, h)
     brow_score = ((left_brow_dist + right_brow_dist) / 2) / face_height
 
-    if smile_score > 0.03:
+    if smile_score > 0.025:
         return "happy"
-    elif brow_score < 0.18:
+    elif brow_score < 0.20:
         return "angry"
-    else:
-        return "neutral"
+    return "neutral"
 
 def show_meme(memes, emotion):
     if emotion in memes and memes[emotion] is not None:
         meme = cv2.resize(memes[emotion], (400, 400))
         cv2.imshow("Meme", meme)
-    else:
-        cv2.destroyWindow("Meme")
 
 def main():
     memes = load_memes()
@@ -77,12 +78,14 @@ def main():
             )
 
             emotion = detect_emotion(landmarks, h)
-            cv2.putText(frame, emotion.upper(), (30, 50),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 0), 3)
 
             if emotion != current_emotion:
                 current_emotion = emotion
-                show_meme(memes, emotion)
+                show_meme(memes, EMOTION_TO_MEME[emotion])
+
+            if emotion is not None:
+                cv2.putText(frame, emotion.upper(), (30, 50),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 0), 3)
         else:
             cv2.putText(frame, "No face detected", (30, 50),
                         cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 0, 255), 3)
